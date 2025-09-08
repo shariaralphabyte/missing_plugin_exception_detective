@@ -1,0 +1,206 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        flutter-version: ['3.16.0', 'stable']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: ${{ matrix.flutter-version }}
+        channel: ${{ matrix.flutter-version == 'stable' && 'stable' || 'stable' }}
+        cache: true
+
+    - name: Install dependencies
+      run: flutter pub get
+
+    - name: Verify formatting
+      run: dart format --output=none --set-exit-if-changed .
+
+    - name: Analyze project source
+      run: dart analyze --fatal-infos
+
+    - name: Run tests
+      run: flutter test --coverage
+
+    - name: Upload coverage to Codecov
+      if: matrix.os == 'ubuntu-latest' && matrix.flutter-version == 'stable'
+      uses: codecov/codecov-action@v3
+      with:
+        file: coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: 'stable'
+        cache: true
+
+    - name: Install dependencies
+      run: flutter pub get
+
+    - name: Create test Flutter project
+      run: |
+        cd /tmp
+        flutter create test_project
+        cd test_project
+        echo "dependencies:" >> pubspec.yaml
+        echo "  camera: ^0.10.0" >> pubspec.yaml
+        flutter pub get
+
+    - name: Test CLI on real project
+      run: |
+        cd /tmp/test_project
+        dart ${{ github.workspace }}/bin/missing_plugin_exception_detective.dart check --output=json > result.json
+        cat result.json
+
+    - name: Validate CLI output
+      run: |
+        cd /tmp/test_project
+        # Check that JSON output is valid
+        python3 -m json.tool result.json > /dev/null
+
+  performance-test:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: 'stable'
+        cache: true
+
+    - name: Install dependencies
+      run: flutter pub get
+
+    - name: Create large test project
+      run: |
+        cd /tmp
+        flutter create large_project
+        cd large_project
+        # Add multiple plugins to test performance
+        cat >> pubspec.yaml << EOF
+        dependencies:
+          camera: ^0.10.0
+          geolocator: ^9.0.0
+          shared_preferences: ^2.0.0
+          url_launcher: ^6.0.0
+          image_picker: ^0.8.0
+          firebase_core: ^2.0.0
+          firebase_auth: ^4.0.0
+          cloud_firestore: ^4.0.0
+          google_maps_flutter: ^2.0.0
+          webview_flutter: ^4.0.0
+        EOF
+        flutter pub get
+
+    - name: Run performance benchmark
+      run: |
+        cd /tmp/large_project
+        time dart ${{ github.workspace }}/bin/missing_plugin_exception_detective.dart check --performance > benchmark.txt
+        echo "Performance benchmark completed"
+        cat benchmark.txt
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  publish-dry-run:
+    name: Publish Dry Run
+    runs-on: ubuntu-latest
+    needs: [test, integration-test]
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: 'stable'
+        cache: true
+
+    - name: Install dependencies
+      run: flutter pub get
+
+    - name: Check publish warnings
+      run: dart pub publish --dry-run
+
+  publish:
+    name: Publish to pub.dev
+    runs-on: ubuntu-latest
+    needs: [test, integration-test, performance-test]
+    if: >
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      contains(github.event.head_commit.message, 'chore: release')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: 'stable'
+        cache: true
+
+    - name: Install dependencies
+      run: flutter pub get
+
+    - name: Setup pub credentials
+      run: |
+        mkdir -p ~/.pub-cache
+        echo '${{ secrets.PUB_CREDENTIALS }}' > ~/.pub-cache/credentials.json
+
+    - name: Publish to pub.dev
+      run: dart pub publish --force

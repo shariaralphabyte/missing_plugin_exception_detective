@@ -1,7 +1,10 @@
 name: missing_plugin_exception_detective
-description: "A new Flutter project."
-version: 0.0.1
-homepage:
+description: "A developer productivity tool that automatically detects, analyzes, and resolves Flutter plugin initialization issues (e.g., MissingPluginException)."
+version: 0.1.0
+homepage: https://github.com/shariaralphabyte/missing_plugin_exception_detective
+repository: https://github.com/shariaralphabyte/missing_plugin_exception_detective
+issue_tracker: https://github.com/shariaralphabyte/missing_plugin_exception_detective/issues
+documentation: https://pub.dev/documentation/missing_plugin_exception_detective/latest/
 
 environment:
   sdk: ^3.9.0
@@ -11,11 +14,21 @@ dependencies:
   flutter:
     sdk: flutter
   plugin_platform_interface: ^2.0.2
+  yaml: ^3.1.2
+  path: ^1.8.3
+  args: ^2.4.2
+  meta: ^1.9.1
+  collection: ^1.17.2
+  stack_trace: ^1.11.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  test: ^1.24.6
+  mockito: ^5.4.2
+  build_runner: ^2.4.7
+  coverage: ^1.6.3
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
