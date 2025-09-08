@@ -30,6 +30,11 @@ dev_dependencies:
   build_runner: ^2.4.7
   coverage: ^1.6.3
 
+executables:
+  missing_plugin_exception_detective: standalone_cli
+  check: standalone_cli
+  doctor: standalone_cli
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
