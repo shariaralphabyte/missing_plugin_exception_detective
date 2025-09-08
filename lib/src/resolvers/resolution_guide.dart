@@ -57,6 +57,22 @@ class ResolutionStep {
       'platform': platform,
     };
   }
+
+  /// Creates a ResolutionStep from a JSON representation
+  factory ResolutionStep.fromJson(Map<String, dynamic> json) {
+    return ResolutionStep(
+      title: json['title'] as String,
+      description: json['description'] as String,
+      action: ResolutionAction.values.firstWhere(
+        (e) => e.name == json['action'],
+      ),
+      command: json['command'] as String?,
+      filePath: json['filePath'] as String?,
+      fileContent: json['fileContent'] as String?,
+      isOptional: json['isOptional'] as bool? ?? false,
+      platform: json['platform'] as String?,
+    );
+  }
 }
 
 /// Types of resolution actions
